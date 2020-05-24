@@ -1,0 +1,32 @@
+let
+  Source = Sql.Databases(".\SQLEXPRESS", [CreateNavigationProperties = false]),
+  WideWorldImportersDW = Source{[Name = "WideWorldImportersDW"]}[Data],
+  Fact_Sale = WideWorldImportersDW{[Schema = "Fact", Item = "Sale"]}[Data],
+  MinDate = List.Min(Fact_Sale[Invoice Date Key]),
+  MaxDate = List.Max(Fact_Sale[Invoice Date Key]),
+  MonthOffset_List = {
+    0..12
+      * (Date.Year(MaxDate) - Date.Year(MinDate)) + Date.Month(MaxDate)
+      - Date.Month(MinDate)
+  },
+  EOM_List = List.Transform(
+    MonthOffset_List, 
+    each Date.AddMonths(Date.EndOfMonth(MinDate), _)
+  ),
+  FilterInvoiceDate = Table.SelectRows(
+    Fact_Sale, 
+    each List.Contains(EOM_List, [Invoice Date Key])
+  ),
+  SelectColumns = Table.SelectColumns(
+    FilterInvoiceDate, 
+    {
+      "Sale Key", 
+      "Customer Key", 
+      "Invoice Date Key", 
+      "Total Excluding Tax", 
+      "Tax Amount", 
+      "Profit"
+    }
+  )
+in
+  SelectColumns
